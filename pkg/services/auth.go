@@ -7,12 +7,14 @@ import (
 	"github.com/hellokvn/jp-auth-svc/pkg/db"
 	"github.com/hellokvn/jp-auth-svc/pkg/models"
 	"github.com/hellokvn/jp-auth-svc/pkg/pb"
+	"github.com/hellokvn/jp-auth-svc/pkg/sender"
 	"github.com/hellokvn/jp-auth-svc/pkg/utils"
 )
 
 type Server struct {
-	H   db.Handler
-	Jwt utils.JwtWrapper
+	H       db.Handler
+	MailSvc sender.Handler
+	Jwt     utils.JwtWrapper
 }
 
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -29,6 +31,20 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 	auth.Password = utils.HashPassword(req.Password)
 
 	s.H.DB.Create(&auth)
+
+	if result := s.H.DB.Create(&auth); result.Error == nil {
+		return &pb.RegisterResponse{
+			Status: http.StatusBadGateway,
+			Error:  result.Error.Error(),
+		}, nil
+	}
+
+	b := &sender.SendMailBody{
+		Template: "register",
+		To:       auth.Email,
+	}
+
+	s.MailSvc.SendMail(b)
 
 	return &pb.RegisterResponse{
 		Status: http.StatusCreated,
