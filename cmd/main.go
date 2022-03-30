@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 
@@ -14,18 +15,18 @@ import (
 )
 
 func main() {
-	config, err := config.LoadConfig()
+	c, err := config.LoadConfig()
 
-	h := db.Init(config.DBUrl)
-	d := sender.Init(config.MailSvcAMQPUrl)
+	h := db.Init(c.DBUrl)
+	d := sender.Init(c.MailSvcAMQPUrl)
 
 	j := utils.JwtWrapper{
-		SecretKey:       config.JWTSecretKey,
+		SecretKey:       c.JWTSecretKey,
 		Issuer:          "jp-auth-svc",
 		ExpirationHours: 24 * 365,
 	}
 
-	lis, err := net.Listen("tcp", config.Port)
+	lis, err := net.Listen("tcp", c.Port)
 
 	if err != nil {
 		log.Fatalln("Failed to listing:", err)
@@ -36,6 +37,8 @@ func main() {
 		Jwt:     j,
 		MailSvc: d,
 	}
+
+	fmt.Println("Listen on:", c.Port)
 
 	grpcServer := grpc.NewServer()
 
